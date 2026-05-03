@@ -1,0 +1,191 @@
+syntax = "proto3";
+
+package trellis;
+
+option csharp_namespace = "Trellis.Proto";
+
+// Core blockchain types
+message Hash {
+  bytes data = 1;
+}
+
+message Address {
+  bytes data = 1;
+}
+
+message PublicKey {
+  bytes data = 1;
+}
+
+message Signature {
+  bytes data = 1;
+}
+
+message Balance {
+  uint64 value = 1;
+}
+
+message BlockHeight {
+  uint64 value = 1;
+}
+
+message Timestamp {
+  int64 ticks = 1;
+}
+
+// Transaction types
+message Transaction {
+  Address from = 1;
+  Address to = 2;
+  Balance amount = 3;
+  uint64 nonce = 4;
+  uint64 gas_limit = 5;
+  uint64 gas_price = 6;
+  bytes data = 7;
+  Signature signature = 8;
+  bytes metadata = 9;
+  Timestamp timestamp = 10;
+}
+
+// Block types
+message BlockHeader {
+  BlockHeight height = 1;
+  Hash previous_hash = 2;
+  Hash merkle_root = 3;
+  Timestamp timestamp = 4;
+  uint64 nonce = 5;
+  uint64 difficulty = 6;
+  Hash pow_hash = 7;
+  bool finalized = 8;
+}
+
+message Block {
+  BlockHeader header = 1;
+  repeated Transaction transactions = 2;
+}
+
+// Account types
+message Account {
+  Address address = 1;
+  Balance balance = 2;
+  uint64 nonce = 3;
+}
+
+// Validator types
+message Validator {
+  PublicKey public_key = 1;
+  Balance stake = 2;
+  bool is_active = 3;
+  BlockHeight last_vote_height = 4;
+  uint32 slash_count = 5;
+}
+
+message ValidatorVote {
+  PublicKey validator = 1;
+  Hash block_hash = 2;
+  Signature signature = 3;
+  Timestamp timestamp = 4;
+}
+
+// API Request/Response types
+message GetBalanceRequest {
+  Address address = 1;
+}
+
+message GetBalanceResponse {
+  Balance balance = 1;
+}
+
+message SendTransactionRequest {
+  Transaction transaction = 1;
+}
+
+message SendTransactionResponse {
+  Hash transaction_hash = 1;
+  bool success = 2;
+  string error_message = 3;
+}
+
+message GetBlockRequest {
+  oneof identifier {
+    Hash hash = 1;
+    BlockHeight height = 2;
+  }
+}
+
+message GetBlockResponse {
+  Block block = 1;
+  bool found = 2;
+}
+
+message GetAccountRequest {
+  Address address = 1;
+}
+
+message GetAccountResponse {
+  Account account = 1;
+  bool found = 2;
+}
+
+message GetValidatorsRequest {
+  // Empty request
+}
+
+message GetValidatorsResponse {
+  repeated Validator validators = 1;
+}
+
+message SubmitBlockRequest {
+  Block block = 1;
+}
+
+message SubmitBlockResponse {
+  bool accepted = 1;
+  string error_message = 2;
+}
+
+message GetChainStateRequest {
+  // Empty request
+}
+
+message GetChainStateResponse {
+  BlockHeight current_height = 1;
+  Hash last_block_hash = 2;
+  uint32 validator_count = 3;
+  Balance total_supply = 4;
+}
+
+// Streaming types
+message BlockUpdate {
+  Block block = 1;
+  string update_type = 2; // "new", "finalized", "rejected"
+}
+
+message TransactionUpdate {
+  Hash transaction_hash = 1;
+  string status = 2; // "pending", "confirmed", "rejected"
+}
+
+// gRPC Service Definition
+service TrellisService {
+  // Account operations
+  rpc GetBalance(GetBalanceRequest) returns (GetBalanceResponse);
+  rpc GetAccount(GetAccountRequest) returns (GetAccountResponse);
+  
+  // Transaction operations
+  rpc SendTransaction(SendTransactionRequest) returns (SendTransactionResponse);
+  
+  // Block operations
+  rpc GetBlock(GetBlockRequest) returns (GetBlockResponse);
+  rpc SubmitBlock(SubmitBlockRequest) returns (SubmitBlockResponse);
+  
+  // Validator operations
+  rpc GetValidators(GetValidatorsRequest) returns (GetValidatorsResponse);
+  
+  // Chain state operations
+  rpc GetChainState(GetChainStateRequest) returns (GetChainStateResponse);
+  
+  // Streaming operations
+  rpc StreamBlocks(GetChainStateRequest) returns (stream BlockUpdate);
+  rpc StreamTransactions(GetChainStateRequest) returns (stream TransactionUpdate);
+}

@@ -1,0 +1,25 @@
+<Project>
+  <PropertyGroup>
+    <!-- .NET 10: Parallel F# compilation for faster builds -->
+    <ParallelCompilation>true</ParallelCompilation>
+    <Deterministic>false</Deterministic>
+
+    <!-- .NET 10: Better trimming by default (F# auto-generates ILLink substitutions) -->
+    <PublishTrimmed Condition="'$(PublishTrimmed)' == ''">false</PublishTrimmed>
+
+    <!-- .NET 10: F# language version (10.0 features) -->
+    <LangVersion>10.0</LangVersion>
+
+    <!-- Standardize warning levels -->
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <NoWarn>$(NoWarn);NU1510;NU1603;FS0020;FS0025;FS0026;SYSLIB5006</NoWarn>
+
+    <!-- NuGet metadata (shared across all packable projects) -->
+    <Authors>Trellis Team</Authors>
+    <Company>Trellis</Company>
+    <PackageProjectUrl>https://github.com/trellis/trellis</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/trellis/trellis</RepositoryUrl>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageTags>blockchain;dotnet;permissioned;consensus;dpos</PackageTags>
+  </PropertyGroup>
+</Project>

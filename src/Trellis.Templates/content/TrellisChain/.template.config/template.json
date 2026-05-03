@@ -1,0 +1,28 @@
+{
+  "$schema": "http://json.schemastore.org/template",
+  "author": "Trellis Team",
+  "classifications": ["blockchain", "trellis", "chain", "web"],
+  "identity": "Trellis.Templates.TrellisChain",
+  "name": "Trellis Chain Project",
+  "shortName": "trellis-chain",
+  "tags": {
+    "language": "F#",
+    "type": "project"
+  },
+  "sourceName": "TrellisChain",
+  "preferNameDirectory": true,
+  "symbols": {
+    "chainId": {
+      "type": "parameter",
+      "defaultValue": "1337",
+      "replaces": "1337",
+      "description": "The chain ID for the new network"
+    },
+    "networkName": {
+      "type": "parameter",
+      "defaultValue": "my-chain",
+      "replaces": "my-chain",
+      "description": "The network name"
+    }
+  }
+}

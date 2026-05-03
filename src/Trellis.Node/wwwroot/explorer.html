@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Trellis Block Explorer</title>
+<style>
+:root{--bg:#0f1117;--card:#1a1d27;--border:#2a2d37;--text:#e4e6eb;--muted:#8b8d94;--accent:#6c8cff;--accent2:#4ecdc4;--red:#f87171;--green:#34d399;--amber:#fbbf24}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);line-height:1.5;min-height:100vh}
+header{background:var(--card);border-bottom:1px solid var(--border);padding:16px 24px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:10}
+header h1{font-size:18px;font-weight:600}
+.status{display:flex;gap:12px;align-items:center;font-size:13px}
+.status-dot{width:8px;height:8px;border-radius:50%;display:inline-block}
+.status-dot.ok{background:var(--green)}
+.status-dot.off{background:var(--red)}
+nav{display:flex;gap:4px;padding:12px 24px;background:var(--bg);border-bottom:1px solid var(--border)}
+nav button{background:0;border:0;color:var(--muted);padding:8px 16px;border-radius:6px;cursor:pointer;font-size:14px;transition:.2s}
+nav button:hover,nav button.active{color:var(--text);background:var(--card)}
+main{padding:24px;max-width:1200px;margin:0 auto}
+.card{background:var(--card);border:1px solid var(--border);border-radius:10px;margin-bottom:20px;overflow:hidden}
+.card-header{padding:14px 20px;border-bottom:1px solid var(--border);font-weight:600;font-size:14px;display:flex;justify-content:space-between;align-items:center}
+.card-body{padding:0}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;padding:10px 20px;color:var(--muted);font-weight:500;font-size:12px;text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--border)}
+td{padding:10px 20px;border-bottom:1px solid rgba(42,45,55,.5)}
+tr:hover{background:rgba(108,140,255,.04)}
+.hash{font-family:'SF Mono',Monaco,Consolas,monospace;font-size:12px;color:var(--accent)}
+.hash span{color:var(--muted)}
+.badge{font-size:11px;padding:2px 8px;border-radius:10px;font-weight:500}
+.badge.ok{background:rgba(52,211,153,.12);color:var(--green)}
+.badge.warn{background:rgba(251,191,36,.12);color:var(--amber)}
+.badge.info{background:rgba(108,140,255,.12);color:var(--accent)}
+.value{font-family:'SF Mono',Monaco,Consolas,monospace;font-size:13px}
+.clickable{cursor:pointer;color:var(--accent);text-decoration:none}
+.clickable:hover{text-decoration:underline}
+.modal-overlay{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.7);z-index:100;justify-content:center;align-items:flex-start;padding-top:60px}
+.modal-overlay.show{display:flex}
+.modal{background:var(--card);border:1px solid var(--border);border-radius:12px;width:90%;max-width:700px;max-height:80vh;overflow-y:auto}
+.modal-header{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
+.modal-header button{background:0;border:0;color:var(--muted);font-size:20px;cursor:pointer;padding:4px 8px;border-radius:4px}
+.modal-header button:hover{color:var(--text);background:var(--border)}
+.modal-body{padding:20px}
+.kv{display:flex;padding:8px 0;border-bottom:1px solid rgba(42,45,55,.3);font-size:13px}
+.kv-label{width:160px;color:var(--muted);flex-shrink:0}
+.kv-value{font-family:'SF Mono',Monaco,Consolas,monospace;word-break:break-all}
+.pagination{display:flex;justify-content:center;gap:8px;padding:12px}
+.pagination button{background:var(--card);border:1px solid var(--border);color:var(--text);padding:6px 14px;border-radius:6px;cursor:pointer;font-size:13px}
+.pagination button:hover{background:var(--border)}
+.pagination button:disabled{opacity:.3;cursor:default}
+.empty{padding:40px;text-align:center;color:var(--muted)}
+.grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:20px}
+.stat{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px 20px}
+.stat-label{font-size:12px;color:var(--muted);text-transform:uppercase;margin-bottom:6px}
+.stat-value{font-size:24px;font-weight:600;font-family:'SF Mono',Monaco,Consolas,monospace}
+.tx-row{display:flex;gap:8px;align-items:center}
+footer{text-align:center;padding:20px;color:var(--muted);font-size:12px}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Trellis Explorer</h1>
+  <div class="status">
+    <span id="peerCount">--</span> peers &bull;
+    <span id="nodeStatus"><span class="status-dot off"></span> Disconnected</span>
+  </div>
+</header>
+
+<nav>
+  <button class="active" data-tab="dashboard">Dashboard</button>
+  <button data-tab="blocks">Blocks</button>
+  <button data-tab="txs">Transactions</button>
+  <button data-tab="validators">Validators</button>
+</nav>
+
+<main>
+  <!-- Dashboard -->
+  <section id="tab-dashboard">
+    <div id="stats" class="grid-3"></div>
+    <div class="card">
+      <div class="card-header">Latest Blocks <span class="badge info" id="blockCount">--</span></div>
+      <div class="card-body">
+        <table><thead><tr><th>Height</th><th>Hash</th><th>Txs</th><th>Time</th></tr></thead>
+        <tbody id="latestBlocks"></tbody></table>
+      </div>
+    </div>
+  </section>
+
+  <!-- Blocks -->
+  <section id="tab-blocks" style="display:none">
+    <div class="card">
+      <div class="card-header">All Blocks</div>
+      <div class="card-body">
+        <table><thead><tr><th>Height</th><th>Hash</th><th>Txs</th><th>Validator</th><th>Time</th></tr></thead>
+        <tbody id="allBlocks"></tbody></table>
+        <div class="pagination" id="blockPages"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Transactions -->
+  <section id="tab-txs" style="display:none">
+    <div class="card">
+      <div class="card-header">Recent Transactions</div>
+      <div class="card-body">
+        <table><thead><tr><th>Hash</th><th>From</th><th>To</th><th>Amount</th></tr></thead>
+        <tbody id="allTxs"></tbody></table>
+      </div>
+    </div>
+  </section>
+
+  <!-- Validators -->
+  <section id="tab-validators" style="display:none">
+    <div class="card">
+      <div class="card-header">Validator Set</div>
+      <div class="card-body">
+        <table><thead><tr><th>Address</th><th>Stake</th><th>Active</th></tr></thead>
+        <tbody id="validatorList"></tbody></table>
+      </div>
+    </div>
+  </section>
+</main>
+
+<!-- Block Detail Modal -->
+<div class="modal-overlay" id="blockModal">
+  <div class="modal">
+    <div class="modal-header">
+      <span>Block Detail</span>
+      <button onclick="closeModal()">&times;</button>
+    </div>
+    <div class="modal-body" id="blockDetail"></div>
+  </div>
+</div>
+
+<footer>Trellis Node v10.0</footer>
+
+<script>
+const WS_URL = `ws://${location.host}/stream`;
+const API = '';
+
+let nodeState = { height:0, peers:0, txs:0, validators:0 };
+let blocks = [];
+let currentPage = 0;
+const PAGE_SIZE = 20;
+
+// WebSocket for real-time updates
+function connectWS() {
+  const ws = new WebSocket(WS_URL);
+  ws.onopen = () => {
+    document.getElementById('nodeStatus').innerHTML = '<span class="status-dot ok"></span> Connected';
+    fetchHealth();
+    fetchChainState();
+    fetchValidators();
+  };
+  ws.onmessage = e => {
+    const msg = e.data;
+    if (msg.startsWith('BLOCK:')) {
+      try { blocks.unshift(JSON.parse(msg.slice(6))); blocks = blocks.slice(0,100); nodeState.height++; render(); }
+      catch(ex) {}
+    } else if (msg.startsWith('TX:')) {
+      nodeState.txs++;
+      render();
+    } else if (msg.startsWith('CHAIN:')) {
+      try { Object.assign(nodeState, JSON.parse(msg.slice(6))); render(); } catch(ex) {}
+    }
+  };
+  ws.onclose = () => {
+    document.getElementById('nodeStatus').innerHTML = '<span class="status-dot off"></span> Disconnected';
+    setTimeout(connectWS, 3000);
+  };
+  ws.onerror = () => ws.close();
+}
+
+async function fetchHealth() {
+  try {
+    const r = await fetch(`${API}/health`);
+    const d = await r.json();
+    document.getElementById('peerCount').textContent = `${d.subscribers || 0} clients`;
+  } catch(e) {}
+}
+
+async function fetchChainState() {
+  try {
+    const r = await fetch(`${API}/chain-state`);
+    const d = await r.json();
+    if (d.blockHeight) nodeState.height = d.blockHeight;
+    render();
+  } catch(e) {}
+}
+
+async function fetchValidators() {
+  try {
+    const r = await fetch(`${API}/validators`);
+    const d = await r.json();
+    if (Array.isArray(d)) { nodeState.validators = d.length; renderValidators(d); }
+  } catch(e) {}
+}
+
+async function fetchBlock(hash) {
+  try {
+    const r = await fetch(`${API}/block/${hash}`);
+    return await r.json();
+  } catch(e) { return null; }
+}
+
+// Render
+function render() {
+  document.getElementById('stats').innerHTML =
+    `<div class="stat"><div class="stat-label">Block Height</div><div class="stat-value">${nodeState.height}</div></div>
+     <div class="stat"><div class="stat-label">Peers</div><div class="stat-value">${nodeState.peers || '--'}</div></div>
+     <div class="stat"><div class="stat-label">Validators</div><div class="stat-value">${nodeState.validators || '--'}</div></div>`;
+
+  document.getElementById('blockCount').textContent = blocks.length;
+  renderBlocks(blocks.slice(0,10), 'latestBlocks');
+  renderBlocks(blocks.slice(currentPage*PAGE_SIZE, (currentPage+1)*PAGE_SIZE), 'allBlocks');
+  renderPages();
+}
+
+function renderBlocks(blist, tbodyId) {
+  const tbody = document.getElementById(tbodyId);
+  if (!blist.length) { tbody.innerHTML = '<tr><td colspan="4" class="empty">No blocks</td></tr>'; return; }
+  tbody.innerHTML = blist.map(b => `
+    <tr>
+      <td><span class="badge ok">${b.height || b.Height || '--'}</span></td>
+      <td class="hash"><a class="clickable" onclick="showBlock('${b.hash || b.Hash || ''}')">${fmtHash(b.hash || b.Hash || '')}</a></td>
+      <td>${b.transactions ? b.transactions.length : (b.txCount || 0)}</td>
+      <td class="muted">${fmtTime(b.timestamp || b.Timestamp || b.time)}</td>
+    </tr>`).join('');
+}
+
+function renderPages() {
+  const total = Math.max(1, Math.ceil(blocks.length / PAGE_SIZE));
+  let html = `<button ${currentPage===0?'disabled':''} onclick="currentPage=0;render()">&laquo;</button>
+              <button ${currentPage===0?'disabled':''} onclick="currentPage--;render()">Prev</button>`;
+  html += `<span style="padding:6px 12px;font-size:13px;color:var(--muted)">${currentPage+1} / ${total}</span>`;
+  html += `<button ${currentPage>=total-1?'disabled':''} onclick="currentPage++;render()">Next</button>
+           <button ${currentPage>=total-1?'disabled':''} onclick="currentPage=${total-1};render()">&raquo;</button>`;
+  document.getElementById('blockPages').innerHTML = html;
+}
+
+function renderValidators(validators) {
+  const tbody = document.getElementById('validatorList');
+  if (!validators.length) { tbody.innerHTML = '<tr><td colspan="3" class="empty">No validators</td></tr>'; return; }
+  tbody.innerHTML = validators.map(v => `
+    <tr>
+      <td class="hash">${fmtHash(v.address || v.Address || '')}</td>
+      <td class="value">${v.stake || v.Stake || '--'}</td>
+      <td>${v.isActive || v.IsActive ? '<span class="badge ok">Active</span>' : '<span class="badge warn">Inactive</span>'}</td>
+    </tr>`).join('');
+}
+
+async function showBlock(hash) {
+  const block = await fetchBlock(hash);
+  if (!block) return;
+  const modal = document.getElementById('blockModal');
+  const detail = document.getElementById('blockDetail');
+  const h = block.header || block.Header || block;
+  detail.innerHTML = `
+    <div class="kv"><span class="kv-label">Height</span><span class="kv-value">${h.height || h.Height}</span></div>
+    <div class="kv"><span class="kv-label">Hash</span><span class="kv-value">${fmtHash(hash)}</span></div>
+    <div class="kv"><span class="kv-label">Previous Hash</span><span class="kv-value">${fmtHash(h.previousHash || h.PreviousHash || '')}</span></div>
+    <div class="kv"><span class="kv-label">Merkle Root</span><span class="kv-value">${fmtHash(h.merkleRoot || h.MerkleRoot || '')}</span></div>
+    <div class="kv"><span class="kv-label">Timestamp</span><span class="kv-value">${fmtTime(h.timestamp || h.Timestamp)}</span></div>
+    <div class="kv"><span class="kv-label">Validator</span><span class="kv-value">${fmtHash(h.validator || h.Validator || '')}</span></div>
+    <div class="kv"><span class="kv-label">Nonce</span><span class="kv-value">${h.nonce || h.Nonce || 0}</span></div>
+    <div class="kv"><span class="kv-label">Difficulty</span><span class="kv-value">${h.difficulty || h.Difficulty || 0}</span></div>
+    <div class="kv"><span class="kv-label">Base Fee</span><span class="kv-value">${h.baseFeePerGas || h.BaseFeePerGas || 0}</span></div>
+    <div class="kv"><span class="kv-label">Gas Used</span><span class="kv-value">${h.gasUsed || h.GasUsed || 0} / ${h.gasLimit || h.GasLimit || 0}</span></div>
+    ${(block.transactions || block.Transactions || []).length ? `
+    <div style="margin-top:16px;font-weight:600;font-size:14px;padding:8px 0">Transactions (${(block.transactions || block.Transactions).length})</div>
+    ${(block.transactions || block.Transactions).map((tx,i) => `
+    <div class="tx-row" style="font-size:12px;padding:4px 0">
+      <span>${i}</span>
+      <span class="hash">${fmtHash(tx.hash || tx.Hash || tx.transactionHash || '')}</span>
+      <span style="color:var(--muted)">${fmtHash(tx.from || tx.From || '')}</span>
+      <span style="color:var(--muted)">&rarr;</span>
+      <span style="color:var(--muted)">${fmtHash(tx.to || tx.To || '')}</span>
+    </div>`).join('')}` : ''}
+  `;
+  modal.classList.add('show');
+}
+
+function closeModal() { document.getElementById('blockModal').classList.remove('show'); }
+document.querySelector('.modal-overlay').addEventListener('click', e => { if(e.target.classList.contains('modal-overlay')) closeModal(); });
+
+// Tab navigation
+document.querySelectorAll('nav button').forEach(btn => btn.addEventListener('click', () => {
+  document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  const tab = btn.dataset.tab;
+  document.querySelectorAll('main section').forEach(s => s.style.display = 'none');
+  document.getElementById(`tab-${tab}`).style.display = '';
+  if (tab === 'blocks') renderBlocks(blocks, 'allBlocks');
+  if (tab === 'validators') fetchValidators();
+}));
+
+// Helpers
+function fmtHash(h) { if (!h || h.length < 12) return '0x' + '0'.repeat(12); return '0x' + h.slice(0,6) + '...' + h.slice(-4); }
+function fmtTime(t) { if (!t) return '--'; try { return new Date(t).toLocaleString(); } catch(e) { return t; } }
+
+connectWS();
+</script>
+</body>
+</html>

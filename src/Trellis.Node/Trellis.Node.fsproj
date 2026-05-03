@@ -1,0 +1,53 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <IsPackable>true</IsPackable>
+    <PackageId>Trellis.Node</PackageId>
+    <Version>1.0.0</Version>
+    <Description>Full Trellis blockchain node — P2P networking, mempool, gRPC API, WebSocket streaming, and block explorer. Includes the CLI tool integration.</Description>
+    <!-- .NET 10: Server GC for long-running blockchain node -->
+    <ServerGarbageCollection>true</ServerGarbageCollection>
+    <ConcurrentGarbageCollection>true</ConcurrentGarbageCollection>
+  </PropertyGroup>
+
+        <ItemGroup>
+            <Compile Include="SimpleNode.fs" />
+            <Compile Include="Mempool.fs" />
+            <Compile Include="EnhancedMempool.fs" />
+            <Compile Include="GrpcService.fs" />
+            <Compile Include="WebSocketStreaming.fs" />
+            <Compile Include="ExplorerApi.fs" />
+            <Compile Include="BlockchainState.fs" />
+            <Compile Include="P2PNetwork.fs" />
+            <Compile Include="SecurityAuditService.fs" />
+            <Compile Include="MonitoringDashboard.fs" />
+            <Compile Include="IndexerService.fs" />
+            <Compile Include="GovernanceService.fs" />
+            <Compile Include="TokenomicsService.fs" />
+            <Compile Include="TreasuryService.fs" />
+            <Compile Include="ConfigLoader.fs" />
+            <Compile Include="Program.fs" />
+        </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Trellis.Core\Trellis.Core.fsproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="../../proto/trellis.proto" />
+    <Content Include="appsettings.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="FSharp.Control.AsyncSeq" Version="3.2.1" />
+  </ItemGroup>
+
+</Project>

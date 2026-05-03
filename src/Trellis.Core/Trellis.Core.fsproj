@@ -1,0 +1,39 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <IsPackable>true</IsPackable>
+    <PackageId>Trellis.Chain</PackageId>
+    <Version>1.0.0</Version>
+    <Description>Core types, crypto, consensus, and tokenomics for the Trellis permissioned blockchain framework. Install this to build custom blockchain logic in .NET.</Description>
+  </PropertyGroup>
+
+        <ItemGroup>
+          <Compile Include="SimpleTypes.fs" />
+          <Compile Include="TrellisConfig.fs" />
+          <Compile Include="ChainParams.fs" />
+          <Compile Include="Serialization.fs" />
+          <Compile Include="SimpleCrypto.fs" />
+          <Compile Include="SimpleRocksDB.fs" />
+          <Compile Include="StateSnapshots.fs" />
+          <Compile Include="SecurityAudit.fs" />
+          <Compile Include="Monitoring.fs" />
+          <Compile Include="Indexer.fs" />
+          <Compile Include="SimpleDPoS.fs" />
+          <Compile Include="DPoSGovernance.fs" />
+          <Compile Include="DPoSTokenomics.fs" />
+          <Compile Include="TreasurySystem.fs" />
+          <Compile Include="StorageOptimization.fs" />
+          <Compile Include="Mining.fs" />
+        </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="BouncyCastle.Cryptography" Version="2.6.2" />
+    <PackageReference Include="RocksDbSharp" Version="6.2.2" />
+    <PackageReference Include="Google.Protobuf" Version="3.30.1" />
+    <PackageReference Include="FsCheck" Version="3.0.0" />
+    <PackageReference Include="Npgsql" Version="9.0.3" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,76 @@
+# .NET
+bin/
+obj/
+*.user
+*.suo
+*.cache
+*.dll
+*.exe
+*.pdb
+*.log
+
+# Visual Studio
+.vs/
+*.sln.docstates
+*.userprefs
+
+# JetBrains Rider
+.idea/
+*.sln.iml
+
+# Data directories
+data/
+*.db
+*.log
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+*~
+
+# Build outputs
+build/
+dist/
+out/
+
+# Dependencies
+packages/
+node_modules/
+
+# IDE
+.vscode/
+*.swp
+*.swo
+
+# Test results
+TestResults/
+*.trx
+*.coverage
+*.coveragexml
+
+# Coverage reports
+coverage/
+*.lcov
+
+# NuGet
+*.nupkg
+*.snupkg
+.nuget/
+
+# Build artifacts
+artifacts/
+
+# Local configuration
+appsettings.local.json
+*.local.json
+
+.fake
