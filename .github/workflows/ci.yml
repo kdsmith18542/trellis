@@ -32,7 +32,7 @@ jobs:
         run: dotnet build Trellis.sln --configuration Release --no-restore
 
       - name: Test
-        run: dotnet test Trellis.Tests --configuration Release --no-restore --no-build --verbosity normal
+        run: dotnet run --project tests/Trellis.Tests/Trellis.Tests.fsproj --configuration Release --no-restore --no-build
 
   pack:
     needs: build
