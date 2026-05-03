@@ -69,6 +69,11 @@ coverage/
 # Build artifacts
 artifacts/
 
+# Project planning files (local only)
+todo.md
+plan.md
+AGENTS.md
+
 # Local configuration
 appsettings.local.json
 *.local.json
