@@ -175,9 +175,9 @@ module Serialization =
             | Some arr -> arr.EnumerateArray() |> Seq.map (fun je -> Address (je.GetString() |> fromHex)) |> Seq.toList
             | None -> []
         let supply = Balance (match tryProp "totalSupply" with | Some p -> p.GetUInt64() | None -> 0UL)
-        let baseFeePerGas = match tryProp "baseFeePerGas" with | Some p -> p.GetUInt64() | None -> 1000000000UL // 1 gwei default
+        let baseFeePerGas = match tryProp "baseFeePerGas" with | Some p -> p.GetUInt64() | None -> TrellisConfig.current.GenesisBaseFeePerGas
         let gasUsed = match tryProp "gasUsed" with | Some p -> p.GetUInt64() | None -> 0UL
-        let gasLimit = match tryProp "gasLimit" with | Some p -> p.GetUInt64() | None -> 30000000UL // 30M gas limit default
+        let gasLimit = match tryProp "gasLimit" with | Some p -> p.GetUInt64() | None -> TrellisConfig.current.GenesisGasLimit
         {
             Accounts = accounts
             Blocks = []

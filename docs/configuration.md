@@ -43,7 +43,7 @@ All chain parameters are configured in `appsettings.json` under the `Trellis` se
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `InitialTotalSupply` | uint64 | `10_000_000 * 10^18` | Starting token supply (18 decimals). |
-| `MaxSupply` | uint64 | `21_000_000 * 10^18` | Maximum token supply. |
+| `MaxSupply` | uint64 | `18_000_000 * 10^18` | Maximum token supply. |
 | `BlockReward` | uint64 | `2 * 10^18` | Base block reward (halves periodically). |
 | `HalvingInterval` | uint64 | `210000` | Blocks between reward halvings. |
 | `BurnRate` | decimal | `0.01` | Fraction of fees burned (1%). |

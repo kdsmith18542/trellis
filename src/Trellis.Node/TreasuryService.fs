@@ -16,15 +16,8 @@ module TreasuryService =
     /// Treasury service implementation
     type TreasuryService(logger: ILogger<TreasuryService>) =
         
-        let defaultPolicy = {
-            MaxSpendingPerProposal = Balance 1000000000000000000UL
-            MaxSpendingPerBlock = Balance 10000000000000000000UL
-            EmergencyThreshold = Balance 10000000000000000000UL
-            ReserveAllocationRate = 0.30m
-            DevelopmentAllocationRate = 0.25m
-            GovernanceAllocationRate = 0.25m
-            EmergencyAllocationRate = 0.20m
-        }
+        let defaultPolicy = TreasurySystem.defaultTreasuryPolicy
+        let budgetPeriod = TrellisConfig.current.VotingPeriod
         let mutable treasuryState = {
             Treasury = {
                 Balance = Balance 0UL
@@ -39,9 +32,9 @@ module TreasuryService =
                 AllocatedBudget = Balance 0UL
                 AvailableBudget = Balance 0UL
                 Categories = Map.empty
-                BudgetPeriod = 10080UL
+                BudgetPeriod = budgetPeriod
                 LastReset = BlockHeight 0UL
-                NextReset = BlockHeight 10080UL
+                NextReset = BlockHeight budgetPeriod
             }
             Policy = defaultPolicy
             Operations = []

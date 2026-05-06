@@ -681,15 +681,16 @@ module SimpleCrypto =
     /// Staking and fee burning functions
     module Staking =
 
-        /// Default token economics
-        let defaultTokenEconomics: TokenEconomics = {
-            MaxSupply = Balance(21_000_000UL * 1_000_000_000_000_000_000UL) // 21M TRL with 18 decimals
-            InitialSupply = Balance(10_000_000UL * 1_000_000_000_000_000_000UL) // 10M TRL
-            BlockReward = Balance(50UL * 1_000_000_000_000_000_000UL) // 50 TRL per block
-            HalvingInterval = 210_000u // Every 210k blocks (like Bitcoin)
-            StakingRewardRate = 0.05m // 5% annual staking reward
-            BurnRate = 0.01m // 1% of fees burned
-        }
+        let private currentTokenEconomics () : TokenEconomics =
+            let cfg = TrellisConfig.current
+            {
+                MaxSupply = Balance cfg.MaxSupply
+                InitialSupply = Balance cfg.InitialTotalSupply
+                BlockReward = Balance cfg.BlockReward
+                HalvingInterval = uint32 cfg.HalvingInterval
+                StakingRewardRate = cfg.StakingRewardRate
+                BurnRate = cfg.BurnRate
+            }
 
         /// Calculate staking rewards
         let calculateStakingRewards (stakingInfo: StakingInfo) (currentTime: Timestamp) =
@@ -698,22 +699,25 @@ module SimpleCrypto =
             let stakingDuration = current - stakingStart
             let daysStaked = stakingDuration.TotalDays
             let (Balance stakedAmount) = stakingInfo.StakedAmount
-            let annualReward = decimal stakedAmount * defaultTokenEconomics.StakingRewardRate
+            let economics = currentTokenEconomics ()
+            let annualReward = decimal stakedAmount * economics.StakingRewardRate
             let reward = annualReward * decimal (daysStaked / 365.0)
             Balance(uint64 reward)
 
         /// Calculate block reward with halving
         let calculateBlockReward (blockHeight: BlockHeight) =
             let (BlockHeight height) = blockHeight
-            let halvings = height / uint64 defaultTokenEconomics.HalvingInterval
-            let (Balance rewardAmount) = defaultTokenEconomics.BlockReward
+            let economics = currentTokenEconomics ()
+            let halvings = height / uint64 economics.HalvingInterval
+            let (Balance rewardAmount) = economics.BlockReward
             let halvedReward = rewardAmount >>> int halvings
             Balance(halvedReward)
 
         /// Calculate fee burning amount
         let calculateFeeBurn (totalFee: Balance) =
             let (Balance feeAmount) = totalFee
-            let burnAmount = uint64 (decimal feeAmount * defaultTokenEconomics.BurnRate)
+            let economics = currentTokenEconomics ()
+            let burnAmount = uint64 (decimal feeAmount * economics.BurnRate)
             Balance(burnAmount)
 
         /// Create staking information
@@ -758,7 +762,7 @@ module SimpleCrypto =
                         StakerAddress = stakingInfo.Address
                         RewardAmount = Balance(rewardAmount)
                         StakingDuration = stakingDuration
-                        AnnualRate = defaultTokenEconomics.StakingRewardRate
+                        AnnualRate = (currentTokenEconomics ()).StakingRewardRate
                         CalculatedAt = currentTime
                     }
                 else
@@ -772,7 +776,7 @@ module SimpleCrypto =
             {
                 TransactionId = transactionId
                 BurnedAmount = burnedAmount
-                BurnRate = defaultTokenEconomics.BurnRate
+                BurnRate = (currentTokenEconomics ()).BurnRate
                 BurnedAt = Timestamp(DateTime.UtcNow)
             }
 

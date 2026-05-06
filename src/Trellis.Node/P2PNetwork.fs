@@ -145,9 +145,9 @@ module P2PNetwork =
                     Difficulty = difficulty
                     PoWHash = powHash
                     Finalized = finalized
-                    BaseFeePerGas = 1000000000UL
+                    BaseFeePerGas = cfg.GenesisBaseFeePerGas
                     GasUsed = 0UL
-                    GasLimit = 30000000UL
+                    GasLimit = cfg.GenesisGasLimit
                 }
                 Transactions = transactions
             }

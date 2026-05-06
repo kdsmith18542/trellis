@@ -1,6 +1,7 @@
 namespace Trellis.CLI
 
 open System
+open System.Diagnostics
 open System.IO
 open System.Text.Json
 open Trellis.Core
@@ -14,6 +15,8 @@ module Program =
         printfn "Usage:"
         printfn "  trellis init <name>        Create a new chain project"
         printfn "  trellis key generate       Generate a new key pair"
+        printfn "  trellis send-tx <to> <amount> [fee] [--node <url>]"
+        printfn "                             Send a transaction to the node"
         printfn "  trellis start              Start the node"
         printfn "  trellis dev-net            Create a 4-node dev network"
         printfn ""
@@ -69,9 +72,111 @@ module Program =
         printfn "WARNING: Store the private key securely. It cannot be recovered."
         0
 
+    let sendTx (toAddr: string) (amount: uint64) (fee: uint64) (nodeUrl: string) =
+        try
+            let (pk, sk) = SimpleCrypto.generateKeyPair ()
+            let (PublicKey pkBytes) = pk
+            let (PrivateKey skBytes) = sk
+            let pkHex = Convert.ToHexString(pkBytes).ToLowerInvariant()
+            let skHex = Convert.ToHexString(skBytes).ToLowerInvariant()
+            
+            let fromHex = "0102030405"
+            
+            let unsignedTx: SimpleTypes.Transaction = {
+                From = SimpleTypes.Address (Convert.FromHexString(fromHex))
+                To = SimpleTypes.Address (Convert.FromHexString(toAddr))
+                Amount = SimpleTypes.Balance amount
+                Fee = SimpleTypes.Balance fee
+                Nonce = SimpleTypes.Nonce 1UL
+                Signature = SimpleTypes.Signature Array.empty
+                Hash = SimpleTypes.Hash Array.empty
+                GasLimit = 21000UL
+                GasPrice = 20UL
+                Data = Array.empty
+                Metadata = Map.ofList [ ("pubkey", pkHex) ]
+                MaxFeePerGas = None
+                MaxPriorityFeePerGas = None
+                TransactionType = 0uy
+            }
+            
+            let (Hash msgHash) = SimpleCrypto.transactionHashSimple unsignedTx
+            
+            let signer = new Org.BouncyCastle.Crypto.Signers.Ed25519Signer()
+            signer.Init(true, Org.BouncyCastle.Crypto.Parameters.Ed25519PrivateKeyParameters(skBytes, 0))
+            signer.BlockUpdate(msgHash, 0, msgHash.Length)
+            let sigBytes = signer.GenerateSignature()
+            let sigHex = Convert.ToHexString(sigBytes).ToLowerInvariant()
+            
+            let tx =
+                { unsignedTx with 
+                    Signature = SimpleTypes.Signature sigBytes
+                    Hash = SimpleCrypto.transactionHashSimple unsignedTx
+                }
+            
+            let (Hash txHash) = tx.Hash
+            let txHashHex = Convert.ToHexString(txHash).ToLowerInvariant()
+            
+            printfn "Sending transaction..."
+            printfn "  From:    %s" fromHex
+            printfn "  To:      %s" toAddr
+            printfn "  Amount:  %d" amount
+            printfn "  Fee:     %d" fee
+            printfn "  Nonce:   1"
+            printfn "  Node:    %s" nodeUrl
+            printfn ""
+            
+            let json = System.Text.Json.JsonSerializer.Serialize(
+                {| from = fromHex
+                   ``to`` = toAddr
+                   amount = amount
+                   fee = fee
+                   nonce = 1UL
+                   publicKey = pkHex
+                   signature = sigHex |})
+            
+            let url = nodeUrl.TrimEnd('/') + "/api/send-transaction"
+            use client = new System.Net.Http.HttpClient()
+            use content = new System.Net.Http.StringContent(json, System.Text.Encoding.UTF8, "application/json")
+            use response = client.PostAsync(url, content).GetAwaiter().GetResult()
+            let body = response.Content.ReadAsStringAsync().GetAwaiter().GetResult()
+            if not response.IsSuccessStatusCode then
+                failwithf "Node returned HTTP %d: %s" (int response.StatusCode) body
+            printfn "Transaction submitted: %s" body
+            printfn "Tx hash: %s" txHashHex
+            printfn "Private key (for reference): %s" skHex
+            0
+        with ex ->
+            printfn "Error: %s" ex.Message
+            1
+
+    let private startProcess (fileName: string) (arguments: string) =
+        let psi = ProcessStartInfo()
+        psi.FileName <- fileName
+        psi.Arguments <- arguments
+        psi.UseShellExecute <- false
+        psi.RedirectStandardOutput <- false
+        psi.RedirectStandardError <- false
+        use proc = Process.Start(psi)
+        proc.WaitForExit()
+        proc.ExitCode
+
     let start () =
         printfn "Starting Trellis node..."
-        Trellis.Node.Program.main [| |]
+        let nodeDll = Path.Combine(AppContext.BaseDirectory, "Trellis.Node.dll")
+        if File.Exists(nodeDll) then
+            startProcess "dotnet" (sprintf "\"%s\"" nodeDll)
+        else
+            let candidates = [
+                Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "Trellis.Node", "Trellis.Node.fsproj")
+                Path.Combine(Environment.CurrentDirectory, "src", "Trellis.Node", "Trellis.Node.fsproj")
+            ]
+            match candidates |> List.tryFind File.Exists with
+            | Some nodeProject ->
+                startProcess "dotnet" (sprintf "run --project \"%s\" --configuration Release" (Path.GetFullPath(nodeProject)))
+            | None ->
+                printfn "Error: Trellis.Node runtime not found."
+                printfn "Install Trellis.Node or run from the repository root with src/Trellis.Node available."
+                1
 
     let devNet () =
         let baseDir = Path.Combine(Environment.CurrentDirectory, "dev-net")
@@ -103,6 +208,8 @@ module Program =
             match args with
             | [| "init"; name |] -> init name
             | [| "key"; "generate" |] -> keyGenerate ()
+            | [| "send-tx"; toAddr; amount; fee |] -> sendTx toAddr (UInt64.Parse(amount)) (UInt64.Parse(fee)) "http://localhost:5001"
+            | [| "send-tx"; toAddr; amount |] -> sendTx toAddr (UInt64.Parse(amount)) 10UL "http://localhost:5001"
             | [| "start" |] -> start ()
             | [| "dev-net" |] -> devNet ()
             | _ -> printUsage (); 1

@@ -85,9 +85,9 @@ module TreasurySystem =
 
     /// Default treasury policy
     let defaultTreasuryPolicy : TreasuryPolicy = {
-        MaxSpendingPerProposal = Balance 1000000000000000000UL // 1 TRL
-        MaxSpendingPerBlock = Balance 10000000000000000000UL // 10 TRL
-        EmergencyThreshold = Balance 10000000000000000000UL // 10 TRL
+        MaxSpendingPerProposal = Balance TrellisConfig.current.MinProposalDeposit
+        MaxSpendingPerBlock = Balance (TrellisConfig.current.MinProposalDeposit * 10UL)
+        EmergencyThreshold = Balance (TrellisConfig.current.MinProposalDeposit * 10UL)
         ReserveAllocationRate = 0.30m // 30% for reserves
         DevelopmentAllocationRate = 0.25m // 25% for development
         GovernanceAllocationRate = 0.25m // 25% for governance
@@ -103,9 +103,9 @@ module TreasurySystem =
                 AllocatedBudget = Balance 0UL
                 AvailableBudget = treasury.Balance
                 Categories = Map.empty
-                BudgetPeriod = 10080UL // ~1 week
+                BudgetPeriod = TrellisConfig.current.VotingPeriod
                 LastReset = BlockHeight 0UL
-                NextReset = BlockHeight 10080UL
+                NextReset = BlockHeight TrellisConfig.current.VotingPeriod
             }
             Policy = policy
             Operations = []

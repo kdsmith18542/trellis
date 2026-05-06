@@ -22,4 +22,12 @@
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageTags>blockchain;dotnet;permissioned;consensus;dpos</PackageTags>
   </PropertyGroup>
+
+  <PropertyGroup>
+    <PackageReadmeFile Condition="'$(PackageReadmeFile)' == ''">PACKAGE_README.md</PackageReadmeFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="$(MSBuildThisFileDirectory)PACKAGE_README.md" Pack="true" PackagePath="\" Visible="false" />
+  </ItemGroup>
 </Project>

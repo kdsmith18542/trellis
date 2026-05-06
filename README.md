@@ -1,81 +1,66 @@
 # Trellis
 
-The open source .NET blockchain — a complete reference implementation you can study, run, and build on.
+Trellis is an open-source .NET blockchain development kit with a complete F# reference implementation.
 
-## What is this?
+## What It Is
 
-Trellis is two things:
+Trellis serves two audiences:
 
-**1. A working blockchain you can read.** The only complete open-source .NET blockchain codebase. Study how types, crypto, consensus, P2P, and APIs fit together — all in idiomatic F#. Every module is documented inline.
-
-**2. A dev kit you can build on.** Install NuGet packages, configure via JSON, and run your own permissioned chain. Ships with a CLI, block explorer, Docker dev-net, and `dotnet new` template.
-
-## Why
-
-No blockchain framework exists for .NET. No blockchain *learning resource* exists for .NET developers. Trellis fills both gaps — a readable F# codebase you can learn from, and NuGet packages you can deploy.
-
-## What
-
-- **DPoS consensus** — validators, staking, governance, treasury
-- **EIP-1559 transactions** — base fee, priority fee, per-sender mempool queues
-- **P2P networking** — Kademlia DHT, gossip, peer health scoring
-- **RocksDB storage** — persistent state with write-ahead journal
-- **gRPC + REST API** — blocks, transactions, accounts, validators
-- **WebSocket streaming** — real-time block and transaction events
-- **Built-in explorer** — zero-dependency HTML block explorer ships with every node
-- **Post-quantum ready** — ML-DSA (FIPS 204) via BouncyCastle + .NET 10
-- **Enterprise features** — security audit framework, compliance indexer, monitoring dashboard
+1. Engineers learning blockchain internals in .NET through a readable end-to-end codebase.
+2. Teams building permissioned chains with NuGet packages, JSON configuration, and local dev tooling.
 
 ## Quick Start
 
 ```bash
 git clone https://github.com/trellis/trellis
 cd trellis
-dotnet build --configuration Release
-dotnet run --project src/Trellis.Node
+dotnet restore Trellis.sln
+dotnet build Trellis.sln --configuration Release
+dotnet run --project src/Trellis.Node --configuration Release
 ```
 
-Open `http://localhost:5000/explorer.html`
+Node endpoints:
 
-## API
+- Explorer: `http://localhost:5000/explorer.html`
+- Health: `http://localhost:5000/health`
+- Stream: `ws://localhost:5000/stream`
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/health` | GET | Node health + connected clients |
-| `/block/{hash}` | GET | Block by hash |
-| `/validators` | GET | Validator list with stake info |
-| `/chain-state` | GET | Current height, hash, base fee |
-| `/account/{address}` | GET | Account balance + nonce |
-| `/stream` | WebSocket | Real-time block/tx events |
-
-## Stack
-
-- .NET 10 LTS (F# 10)
-- BouncyCastle 2.6.2 (Ed25519 + post-quantum)
-- RocksDB (persistent state)
-- ASP.NET Core (Kestrel, WebSocket, static files)
-
-## Structure
-
-```
-src/
-├── Trellis.Core/    → Types, crypto, consensus, storage, tokenomics, mining
-├── Trellis.Node/    → P2P, mempool, API, explorer, monitoring, host
-├── Trellis.Wallet/  → Avalonia desktop wallet
-├── Trellis.Indexer/ → PostgreSQL compliance indexer
-├── Trellis.Testnet/ → Multi-node testnet orchestrator
-├── Trellis.Regnet/  → Regression test runner
-└── Trellis.Beta/    → Beta testnet with incentives
-
-tests/
-└── Trellis.Tests/   → xUnit + FsCheck tests
-```
-
-## Build
+## Build, Test, Pack
 
 ```bash
-dotnet build --configuration Release   # Build all projects
-dotnet test --configuration Release    # Run tests
+dotnet restore Trellis.sln
+dotnet build Trellis.sln --configuration Release
+dotnet run --project tests/Trellis.Tests --configuration Release
+dotnet pack Trellis.sln --configuration Release -o artifacts
+```
+
+Notes:
+
+- Expected warning profile is 2 NuGet vulnerability warnings from Avalonia's transitive `Tmds.DBus.Protocol`.
+- Tests use the custom runner in `tests/Trellis.Tests` (not `dotnet test`).
+- Pack output should contain 5 packages: `Trellis.Chain`, `Trellis.Node`, `Trellis.CLI`, `Trellis.Templates`, `Trellis.Wallet`.
+
+## Packages
+
+- `Trellis.Chain`: core types, crypto, consensus, storage, tokenomics.
+- `Trellis.Node`: node host with P2P, mempool, APIs, streaming, explorer assets.
+- `Trellis.CLI`: `trellis` tool for init, key generation, send-tx, start, dev-net.
+- `Trellis.Templates`: `dotnet new trellis-chain` template.
+- `Trellis.Wallet`: Avalonia desktop wallet.
+
+## Project Structure
+
+```text
+src/
+  Trellis.Core/        Core protocol and data modules (packaged)
+  Trellis.Node/        Node runtime and network/API host (packaged)
+  Trellis.CLI/         Command-line tool (packaged)
+  Trellis.Templates/   dotnet new template package (packaged)
+  Trellis.Wallet/      Avalonia wallet package (packaged)
+  archive/             Legacy L1 experiments and scripts (not built)
+
+tests/
+  Trellis.Tests/       Custom unit + property + security-audit runner
 ```
 
 ## License

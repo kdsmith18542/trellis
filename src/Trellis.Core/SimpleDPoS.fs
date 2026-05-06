@@ -157,7 +157,8 @@ module SimpleDPoS =
 
     /// Calculate validator rewards
     let calculateValidatorRewards (validator: DPoSValidator) (block: Block) : Balance =
-        let baseReward = Balance 2000000000000000000UL // 2 TRL base reward
+        let cfg = TrellisConfig.current
+        let baseReward = Balance cfg.BlockReward
         let stakeMultiplier = 
             let stakeAmount = match validator.Stake with | Balance s -> s
             if stakeAmount > 0UL then
@@ -175,7 +176,8 @@ module SimpleDPoS =
 
     /// Calculate staking rewards
     let calculateStakingRewards (stake: Balance) (block: Block) : Balance =
-        let baseReward = Balance 1000000000000000000UL // 1 TRL base reward
+        let cfg = TrellisConfig.current
+        let baseReward = Balance (cfg.BlockReward / 2UL)
         let stakeAmount = match stake with | Balance s -> s
         let rewardAmount = match baseReward with | Balance r -> r
         

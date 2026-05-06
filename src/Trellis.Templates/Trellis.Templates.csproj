@@ -9,6 +9,7 @@
     <TargetFramework>net10.0</TargetFramework>
     <IncludeContentInPack>true</IncludeContentInPack>
     <IncludeBuildOutput>false</IncludeBuildOutput>
+    <SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
     <ContentTargetFolders>content</ContentTargetFolders>
     <NoDefaultPackage>true</NoDefaultPackage>
     <IsPackable>true</IsPackable>
