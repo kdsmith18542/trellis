@@ -89,23 +89,23 @@ module SecurityAudit =
             let (PublicKey pubKeyBytes) = publicKey
             let (PrivateKey privKeyBytes) = privateKey
             
-            // Check key lengths
-            if pubKeyBytes.Length < 256 then
+            // Check key lengths (Ed25519 is 32 bytes)
+            if pubKeyBytes.Length < 32 then
                 results.Add({
                     Vulnerability = CryptographicWeakness "Weak public key length"
                     Severity = High
-                    Description = sprintf "Public key length is %d bytes, minimum 256 bytes recommended" pubKeyBytes.Length
-                    Recommendation = "Use RSA-2048 or ECDSA P-256 minimum"
+                    Description = sprintf "Public key length is %d bytes, minimum 32 bytes required for Ed25519" pubKeyBytes.Length
+                    Recommendation = "Use Ed25519 (32 bytes) or RSA-2048 (256 bytes) minimum"
                     CodeLocation = Some "SimpleCrypto.generateKeyPair"
                     TestCase = Some "Key length validation"
                 })
             
-            if privKeyBytes.Length < 256 then
+            if privKeyBytes.Length < 32 then
                 results.Add({
                     Vulnerability = CryptographicWeakness "Weak private key length"
                     Severity = Critical
-                    Description = sprintf "Private key length is %d bytes, minimum 256 bytes recommended" privKeyBytes.Length
-                    Recommendation = "Use RSA-2048 or ECDSA P-256 minimum"
+                    Description = sprintf "Private key length is %d bytes, minimum 32 bytes required for Ed25519" privKeyBytes.Length
+                    Recommendation = "Use Ed25519 (32 bytes) or RSA-2048 (256 bytes) minimum"
                     CodeLocation = Some "SimpleCrypto.generateKeyPair"
                     TestCase = Some "Private key length validation"
                 })
@@ -138,13 +138,13 @@ module SecurityAudit =
             let results = ResizeArray<SecurityAuditResult>()
             let (Signature sigBytes) = signature
             
-            // Check signature length
-            if sigBytes.Length < 256 then
+            // Check signature length (Ed25519 is 64 bytes)
+            if sigBytes.Length < 64 then
                 results.Add({
                     Vulnerability = CryptographicWeakness "Weak signature length"
                     Severity = High
-                    Description = sprintf "Signature length is %d bytes, minimum 256 bytes recommended" sigBytes.Length
-                    Recommendation = "Use RSA-2048 or ECDSA P-256 signatures"
+                    Description = sprintf "Signature length is %d bytes, minimum 64 bytes required for Ed25519" sigBytes.Length
+                    Recommendation = "Use Ed25519 (64 bytes) or RSA-2048 (256 bytes) signatures"
                     CodeLocation = Some "SimpleCrypto.sign"
                     TestCase = Some "Signature length validation"
                 })
