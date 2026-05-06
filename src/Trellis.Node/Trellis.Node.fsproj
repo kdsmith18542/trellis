@@ -14,8 +14,8 @@
 
         <ItemGroup>
             <Compile Include="SimpleNode.fs" />
-            <Compile Include="Mempool.fs" />
             <Compile Include="EnhancedMempool.fs" />
+            <Compile Include="Mempool.fs" />
             <Compile Include="GrpcService.fs" />
             <Compile Include="WebSocketStreaming.fs" />
             <Compile Include="ExplorerApi.fs" />

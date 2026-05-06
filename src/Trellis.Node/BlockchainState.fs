@@ -234,6 +234,7 @@ module BlockchainState =
                                     max 1UL (uint64 (float baseFeePerGas * cfg.BaseFeeDecreaseMultiplier))
 
                             baseFeePerGas <- newBaseFee
+                            Trellis.Node.Mempool.updateBaseFee newBaseFee
                             lastBlockBurn <- totalBurn
                             lastBlockTips <- totalTip
 

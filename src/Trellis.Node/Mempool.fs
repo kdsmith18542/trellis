@@ -4,24 +4,26 @@ open System
 open System.IO
 open Trellis.Core
 open SimpleTypes
+open EnhancedMempool
 
-/// Minimal mempool with signature + nonce checks and simple fee priority
+/// Production-grade mempool service with per-sender queues, EIP-1559 support, and persistence
 module Mempool =
 
-    type private MempoolState = {
-        Txs: Map<Hash, Transaction>
-        PerSender: Map<Address, Set<Nonce>>
-        MaxSize: int
-        Db: RocksDbSharp.RocksDb
-    }
+    type private MempoolMsg =
+        | Add of Transaction * (Address -> Nonce option) * AsyncReplyChannel<Result<unit, string>>
+        | Remove of Hash
+        | GetForBlock of uint64 * AsyncReplyChannel<Transaction list>
+        | UpdateBaseFee of uint64
+        | GetStats of AsyncReplyChannel<Map<string, obj>>
 
     let private dataDir = Path.Combine(AppContext.BaseDirectory, "data")
     let private dbPath = Path.Combine(dataDir, "mempool.db")
 
-    let private toHex (bytes: byte[]) = System.Convert.ToHexString(bytes)
-    let private fromHex (hex: string) = System.Convert.FromHexString(hex)
+    let private toHex (bytes: byte[]) = Convert.ToHexString(bytes)
+    let private fromHex (hex: string) = Convert.FromHexString(hex)
 
     let private serializeTx (tx: Transaction) : string =
+        // Simple CSV serialization for mempool persistence
         let h = match tx.Hash with | Hash b -> toHex b
         let fromA = match tx.From with | Address a -> toHex a
         let toA = match tx.To with | Address a -> toHex a
@@ -70,10 +72,10 @@ module Mempool =
         opts.SetCreateIfMissing(true) |> ignore
         RocksDbSharp.RocksDb.Open(opts, dbPath)
 
-    let private loadDb (db: RocksDbSharp.RocksDb) : (Hash * Transaction) list =
+    let private loadDb (db: RocksDbSharp.RocksDb) : Transaction list =
         use it = db.NewIterator()
         it.Seek([| byte 'm'; byte 'p'; byte ':' |])
-        let results = System.Collections.Generic.List<Hash * Transaction>()
+        let results = ResizeArray<Transaction>()
         let prefix = [| byte 'm'; byte 'p'; byte ':' |]
         let mutable cont = it.Valid()
         while cont do
@@ -82,118 +84,81 @@ module Mempool =
                 let value = it.Value()
                 let line = System.Text.Encoding.UTF8.GetString(value)
                 match deserializeTx line with
-                | Some tx -> results.Add((tx.Hash, tx))
+                | Some tx -> results.Add(tx)
                 | None -> ()
                 it.Next(); cont <- it.Valid()
             else
                 cont <- false
         results |> Seq.toList
 
-    let private putTx (db: RocksDbSharp.RocksDb) (tx: Transaction) =
-        let key =
-            match tx.Hash with | Hash b ->
-                let id = System.Convert.ToHexString(b)
-                System.Text.Encoding.UTF8.GetBytes("mp:" + id)
+    let private persistAdd (db: RocksDbSharp.RocksDb) (tx: Transaction) =
+        let (Hash hb) = tx.Hash
+        let key = System.Text.Encoding.UTF8.GetBytes("mp:" + toHex hb)
         let value = System.Text.Encoding.UTF8.GetBytes(serializeTx tx)
         db.Put(key, value)
 
-    let private delTx (db: RocksDbSharp.RocksDb) (h: Hash) =
-        let key =
-            match h with | Hash b -> System.Text.Encoding.UTF8.GetBytes("mp:" + System.Convert.ToHexString(b))
+    let private persistRemove (db: RocksDbSharp.RocksDb) (h: Hash) =
+        let (Hash hb) = h
+        let key = System.Text.Encoding.UTF8.GetBytes("mp:" + toHex hb)
         db.Remove(key)
-
-    type private Msg =
-        | Add of Transaction * AsyncReplyChannel<Result<Hash,string>>
-        | Remove of Hash * AsyncReplyChannel<unit>
-        | Get of int * AsyncReplyChannel<Transaction list>
 
     let private agent = lazy (MailboxProcessor.Start(fun inbox ->
         let db = openDb()
-        let initMap = loadDb db
-        let perSender =
-            initMap
-            |> List.fold (fun acc (_, tx) ->
-                let (Nonce n) = tx.Nonce
-                let set = acc |> Map.tryFind tx.From |> Option.defaultValue Set.empty
-                let set' = set.Add(Nonce n)
-                acc.Add(tx.From, set')
-            ) Map.empty
-        let initState = {
-            Txs = Map.ofList initMap
-            PerSender = perSender
-            MaxSize = Trellis.Core.TrellisConfig.current.MempoolMaxSize
-            Db = db
-        }
-        let rec loop (st: MempoolState) = async {
+        let cfg = TrellisConfig.current
+        let initialState = createMempoolState cfg.MempoolMaxSize cfg.MaxTransactionsPerSender cfg.GenesisBaseFeePerGas
+        
+        // Hydrate from DB
+        let savedTxs = loadDb db
+        for tx in savedTxs do
+            // We use a dummy nonce check during hydration since we trust the DB
+            addTransaction initialState tx (fun _ -> Some tx.Nonce) 0.0 |> ignore
+            
+        let rec loop () = async {
             let! msg = inbox.Receive()
             match msg with
-            | Add (tx, reply) ->
-                if st.Txs.Count >= st.MaxSize then
-                    // evict lowest fee (simple)
-                    let toList = st.Txs |> Map.toList |> List.map snd
-                    let sorted = toList |> List.sortBy (fun t -> match t.Fee with | Balance f -> f)
-                    match sorted with
-                    | evict :: _ ->
-                        let st' = { st with Txs = st.Txs.Remove(evict.Hash) }
-                        delTx st'.Db evict.Hash
-                        let st'' = { st' with Txs = st'.Txs.Add(tx.Hash, tx) }
-                        putTx st''.Db tx
-                        reply.Reply (Ok tx.Hash)
-                        return! loop st''
-                    | [] -> reply.Reply (Error "mempool_full"); return! loop st
-                else
-                    // Check for duplicate transaction hash (transaction already in mempool)
-                    if st.Txs.ContainsKey(tx.Hash) then
-                        reply.Reply (Error "duplicate_transaction"); return! loop st
-                    else
-                        // Prevent duplicate nonce per sender
-                        let existingNonces = st.PerSender |> Map.tryFind tx.From |> Option.defaultValue Set.empty
-                        let (Nonce tn) = tx.Nonce
-                        if existingNonces.Contains(Nonce tn) then
-                            reply.Reply (Error "duplicate_nonce"); return! loop st
-                        else
-                            putTx st.Db tx
-                            let perSender' = st.PerSender.Add(tx.From, existingNonces.Add(Nonce tn))
-                            reply.Reply (Ok tx.Hash)
-                            return! loop { st with Txs = st.Txs.Add(tx.Hash, tx); PerSender = perSender' }
-            | Remove (h, ack) ->
-                // Also remove from PerSender map
-                let toRemoveTx = st.Txs |> Map.tryFind h
-                let st' = { st with Txs = st.Txs.Remove(h) }
-                let st'' =
-                    match toRemoveTx with
-                    | Some tx ->
-                        let nonces = st'.PerSender |> Map.tryFind tx.From |> Option.defaultValue Set.empty
-                        let nonces' = nonces.Remove(tx.Nonce)
-                        { st' with PerSender = st'.PerSender.Add(tx.From, nonces') }
-                    | None -> st'
-                delTx st'.Db h
-                ack.Reply(()); return! loop st''
-            | Get (count, reply) ->
-                let txs = st.Txs |> Map.toList |> List.map snd |> List.sortByDescending (fun t -> match t.Fee with | Balance f -> f) |> List.truncate count
-                reply.Reply txs; return! loop st
+            | Add (tx, getNonce, reply) ->
+                let res = addTransaction initialState tx getNonce 10.0 // 10% min bump
+                if res.IsOk then persistAdd db tx
+                reply.Reply res
+            | Remove hash ->
+                removeTransaction initialState hash
+                persistRemove db hash
+            | GetForBlock (gasLimit, reply) ->
+                let txs = selectTransactionsForBlock initialState gasLimit
+                reply.Reply txs
+            | UpdateBaseFee fee ->
+                updateBaseFee initialState fee
+            | GetStats reply ->
+                reply.Reply (getStatistics initialState)
+            
+            return! loop()
         }
-        loop initState))
+        loop()))
 
-    /// Accept a transaction into the mempool
-    let acceptTransaction (tx: Transaction) (getAccount: Address -> Account option) : Result<Hash,string> =
-        // Signature check
-        if not (Trellis.Core.SimpleCrypto.verifyTransactionSimple tx) then Error "bad_signature" else
-        // Nonce policy: tx.Nonce must be account.Nonce + 1, or 1 if new account
-        let account = getAccount tx.From
-        let okNonce =
-            match account with
-            | Some acc -> let (Nonce an) = acc.Nonce in let (Nonce tn) = tx.Nonce in tn = an + 1UL
-            | None -> let (Nonce tn) = tx.Nonce in tn = 1UL
-        if not okNonce then Error "invalid_nonce" else
-        // Add
-        let res = agent.Value.PostAndReply(fun rc -> Add (tx, rc))
-        res
+    /// Public API for the Mempool
+    
+    let acceptTransaction (tx: Transaction) (getAccount: Address -> Account option) : Result<Hash, string> =
+        // Basic validation
+        if not (Trellis.Core.SimpleCrypto.verifyTransactionSimple tx) then Error "bad_signature"
+        else
+            let getNonce addr = getAccount addr |> Option.map (fun a -> a.Nonce)
+            let res = agent.Value.PostAndReply(fun rc -> Add (tx, getNonce, rc))
+            match res with
+            | Ok () -> Ok tx.Hash
+            | Error e -> Error e
 
-    /// Remove a transaction after inclusion
     let remove (hash: Hash) : unit =
-        agent.Value.PostAndReply(fun rc -> Remove (hash, rc)) |> ignore
+        agent.Value.Post(Remove hash)
 
-    /// Get up to count transactions sorted by fee desc
+    let selectTransactions (gasLimit: uint64) : Transaction list =
+        agent.Value.PostAndReply(fun rc -> GetForBlock (gasLimit, rc))
+
+    let updateBaseFee (fee: uint64) : unit =
+        agent.Value.Post(UpdateBaseFee fee)
+
+    let getStats () : Map<string, obj> =
+        agent.Value.PostAndReply(fun rc -> GetStats rc)
+
+    // Backwards compatibility for old API if needed
     let getTransactions (count: int) : Transaction list =
-        agent.Value.PostAndReply(fun rc -> Get (count, rc))
+        selectTransactions 1000000UL |> List.truncate count

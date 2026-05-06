@@ -66,6 +66,7 @@ type TrellisConfig = {
 
     // Mempool
     MempoolMaxSize: int
+    MaxTransactionsPerSender: int
 
     // Cutover
     CutoverMinHeight: uint64
@@ -119,6 +120,7 @@ module TrellisConfig =
         P2PBlockTimeToleranceFutureSeconds = 3600.0
         ApiListenUrl = "http://localhost:5000"
         MempoolMaxSize = 10000
+        MaxTransactionsPerSender = 100
         CutoverMinHeight = 1_500_000UL
         CutoverMinMedianTimeDays = 180.0
         CutoverMinTotalDifficulty = None
