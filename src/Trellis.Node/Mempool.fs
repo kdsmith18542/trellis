@@ -68,47 +68,49 @@ module Mempool =
 
     let private openDb() =
         ensureDir()
-        let opts = new RocksDbSharp.DbOptions()
-        opts.SetCreateIfMissing(true) |> ignore
-        RocksDbSharp.RocksDb.Open(opts, dbPath)
+        let conn = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={dbPath}")
+        conn.Open()
+        use cmd = conn.CreateCommand()
+        cmd.CommandText <- "CREATE TABLE IF NOT EXISTS mempool (key TEXT PRIMARY KEY, value TEXT)"
+        cmd.ExecuteNonQuery() |> ignore
+        conn
 
-    let private loadDb (db: RocksDbSharp.RocksDb) : Transaction list =
-        use it = db.NewIterator()
-        it.Seek([| byte 'm'; byte 'p'; byte ':' |])
+    let private loadDb (conn: Microsoft.Data.Sqlite.SqliteConnection) : Transaction list =
+        use cmd = conn.CreateCommand()
+        cmd.CommandText <- "SELECT value FROM mempool WHERE key LIKE 'mp:%'"
+        use reader = cmd.ExecuteReader()
         let results = ResizeArray<Transaction>()
-        let prefix = [| byte 'm'; byte 'p'; byte ':' |]
-        let mutable cont = it.Valid()
-        while cont do
-            let key = it.Key()
-            if key.Length >= 3 && key.[0..2] = prefix then
-                let value = it.Value()
-                let line = System.Text.Encoding.UTF8.GetString(value)
-                match deserializeTx line with
-                | Some tx -> results.Add(tx)
-                | None -> ()
-                it.Next(); cont <- it.Valid()
-            else
-                cont <- false
+        while reader.Read() do
+            let line = reader.GetString(0)
+            match deserializeTx line with
+            | Some tx -> results.Add(tx)
+            | None -> ()
         results |> Seq.toList
 
-    let private persistAdd (db: RocksDbSharp.RocksDb) (tx: Transaction) =
+    let private persistAdd (conn: Microsoft.Data.Sqlite.SqliteConnection) (tx: Transaction) =
         let (Hash hb) = tx.Hash
-        let key = System.Text.Encoding.UTF8.GetBytes("mp:" + toHex hb)
-        let value = System.Text.Encoding.UTF8.GetBytes(serializeTx tx)
-        db.Put(key, value)
+        let key = "mp:" + toHex hb
+        use cmd = conn.CreateCommand()
+        cmd.CommandText <- "INSERT OR REPLACE INTO mempool (key, value) VALUES (@key, @value)"
+        cmd.Parameters.AddWithValue("@key", key) |> ignore
+        cmd.Parameters.AddWithValue("@value", serializeTx tx) |> ignore
+        cmd.ExecuteNonQuery() |> ignore
 
-    let private persistRemove (db: RocksDbSharp.RocksDb) (h: Hash) =
+    let private persistRemove (conn: Microsoft.Data.Sqlite.SqliteConnection) (h: Hash) =
         let (Hash hb) = h
-        let key = System.Text.Encoding.UTF8.GetBytes("mp:" + toHex hb)
-        db.Remove(key)
+        let key = "mp:" + toHex hb
+        use cmd = conn.CreateCommand()
+        cmd.CommandText <- "DELETE FROM mempool WHERE key = @key"
+        cmd.Parameters.AddWithValue("@key", key) |> ignore
+        cmd.ExecuteNonQuery() |> ignore
 
     let private agent = lazy (MailboxProcessor.Start(fun inbox ->
-        let db = openDb()
+        let conn = openDb()
         let cfg = TrellisConfig.current
         let initialState = createMempoolState cfg.MempoolMaxSize cfg.MaxTransactionsPerSender cfg.GenesisBaseFeePerGas
         
         // Hydrate from DB
-        let savedTxs = loadDb db
+        let savedTxs = loadDb conn
         for tx in savedTxs do
             // We use a dummy nonce check during hydration since we trust the DB
             addTransaction initialState tx (fun _ -> Some tx.Nonce) 0.0 |> ignore
@@ -118,11 +120,11 @@ module Mempool =
             match msg with
             | Add (tx, getNonce, reply) ->
                 let res = addTransaction initialState tx getNonce 10.0 // 10% min bump
-                if res.IsOk then persistAdd db tx
+                if res.IsOk then persistAdd conn tx
                 reply.Reply res
             | Remove hash ->
                 removeTransaction initialState hash
-                persistRemove db hash
+                persistRemove conn hash
             | GetForBlock (gasLimit, reply) ->
                 let txs = selectTransactionsForBlock initialState gasLimit
                 reply.Reply txs

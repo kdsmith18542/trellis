@@ -11,7 +11,7 @@ Trellis build and run coverage:
 ## Requirements
 
 - .NET 10 SDK
-- No separate native install step for RocksDB in standard dev workflows
+- No native dependencies required (SQLite is managed-only via Microsoft.Data.Sqlite)
 
 ## Verification Commands
 

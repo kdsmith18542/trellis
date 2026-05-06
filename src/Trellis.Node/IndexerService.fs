@@ -63,7 +63,7 @@ type IndexerService(logger: ILogger<IndexerService>, configuration: IConfigurati
             async {
                 while not cancellationToken.IsCancellationRequested && isRunning do
                     try
-                        // Get latest blocks from RocksDB storage
+                        // Get latest blocks from chain state
                         let newBlocks = this.GetNewBlocks()
                         
                         // Index new blocks and transactions
@@ -95,7 +95,7 @@ type IndexerService(logger: ILogger<IndexerService>, configuration: IConfigurati
     
     member private this.GetNewBlocks() : Block list =
         try
-            // This would typically read from RocksDB storage
+            // This would typically read from chain state storage
             // For now, return empty list as we don't have access to the storage layer
             logger.LogDebug("Retrieving new blocks for indexing")
             []

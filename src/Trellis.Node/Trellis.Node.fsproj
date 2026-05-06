@@ -51,6 +51,7 @@
 
   <ItemGroup>
     <PackageReference Include="FSharp.Control.AsyncSeq" Version="3.2.1" />
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="9.5.0" />
   </ItemGroup>
 
 </Project>

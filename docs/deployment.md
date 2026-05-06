@@ -7,7 +7,7 @@ This guide covers deploying a Trellis node for production or staging environment
 - .NET 10 SDK
 - Windows or Linux (Ubuntu 22.04+ recommended)
 - 4GB RAM minimum
-- RocksDB dependencies (installed automatically via NuGet)
+- No native database dependencies (SQLite via Microsoft.Data.Sqlite)
 
 ## Deployment Options
 

@@ -32,7 +32,7 @@ Submitting 10,000 transactions via gRPC SubmitTransaction:
 ## Sync Speed
 
 ```
-Processing 10,000 pre-existing blocks from RocksDB:
+Processing 10,000 pre-existing blocks from chain state:
 
   Average:   850 blocks/second
   Time:      ~12 seconds for 10,000 blocks
